@@ -46,7 +46,7 @@
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script>
 let rows = [];
-let sortKey = "placeofwork";
+let sortKey = "mbbsbatch";   // default sort by batch
 let sortDir = 1;
 
 const tbody = document.querySelector("#tbl tbody");
@@ -108,9 +108,14 @@ function draw(){
     return text.includes(term);
   });
 
+  // default sort by batch then name
   filtered.sort((a,b)=>{
-    const A = (a["_"+sortKey] ?? "").toString().toLowerCase();
-    const B = (b["_"+sortKey] ?? "").toString().toLowerCase();
+    const A_batch = parseInt(a._batch)||0;
+    const B_batch = parseInt(b._batch)||0;
+    if(A_batch !== B_batch) return (A_batch - B_batch) * sortDir;
+
+    const A = (a._name||"").toLowerCase();
+    const B = (b._name||"").toLowerCase();
     return A < B ? -1*sortDir : A > B ? 1*sortDir : 0;
   });
 
@@ -152,8 +157,7 @@ fetch("contacts.csv?v=" + Date.now()).then(r=>r.text()).then(txt=>{
           _desig: desig,
           _place: place,
           _phone: phone,
-          _wa: wa,
-          _placeofwork: place
+          _wa: wa
         };
       });
 
