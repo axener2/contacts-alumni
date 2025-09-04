@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Contacts Directory</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:20px}
+  h1{margin:0 0 12px}
+  .row{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  input[type="search"]{padding:8px;border:1px solid #ccc;min-width:260px}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  th,td{border:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}
+  th{background:#f6f6f6;cursor:pointer}
+  .muted{color:#666}
+</style>
+</head>
+<body>
+<h1>Contacts Directory</h1>
+
+<div class="row">
+  <input id="q" type="search" placeholder="Search name, batch, designation, place, phone…" />
+  <span id="count" class="muted"></span>
+</div>
+
+<table id="tbl">
+  <thead>
+    <tr>
+      <th data-k="S.No">S.No</th>
+      <th data-k="Name">Name</th>
+      <th data-k="MBBS Batch">MBBS Batch</th>
+      <th data-k="Designation">Designation</th>
+      <th data-k="Place of Work">Place of Work</th>
+      <th data-k="Contact no">Contact</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script>
+let rows = [];
+let sortKey = "placeofwork";
+let sortDir = 1;
+
+const tbody = document.querySelector("#tbl tbody");
+const q = document.getElementById("q");
+const count = document.getElementById("count");
+
+function normalizeKey(s) {
+  if (!s) return "";
+  return String(s).replace(/\u00a0/g, " ").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function buildKeyMap(obj) {
+  const map = {};
+  Object.keys(obj).forEach(k => { map[normalizeKey(k)] = k; });
+  return map;
+}
+
+function getVal(row, kmap, candidates) {
+  for (const c of candidates) {
+    const nk = normalizeKey(c);
+    const actual = kmap[nk];
+    if (actual && row[actual] != null && row[actual] !== "") return row[actual];
+  }
+  for (const key in kmap) {
+    if (candidates.some(c => key.includes(normalizeKey(c)))) {
+      const actual = kmap[key];
+      if (row[actual] != null && row[actual] !== "") return row[actual];
+    }
+  }
+  return "";
+}
+
+function telHTML(val){
+  if(!val) return "";
+  const digits = (""+val).replace(/\D/g,"");
+  if(!digits) return "";
+  const withCC = digits.length===10 ? "+91"+digits
+               : digits.startsWith("91") ? "+"+digits
+               : "+"+digits;
+  return `<a href="tel:${withCC}">${withCC}</a>`;
+}
+
+function draw(){
+  const term = q.value.trim().toLowerCase();
+
+  const filtered = rows.filter(r=>{
+    const text = [r._name, r._batch, r._desig, r._place, r._phone]
+      .join(" ").toLowerCase();
+    return text.includes(term);
+  });
+
+  filtered.sort((a,b)=>{
+    const A = (a["_"+sortKey] ?? "").toString().toLowerCase();
+    const B = (b["_"+sortKey] ?? "").toString().toLowerCase();
+    return A < B ? -1*sortDir : A > B ? 1*sortDir : 0;
+  });
+
+  tbody.innerHTML = filtered.map((r,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td>${r._name||""}</td>
+      <td>${r._batch||""}</td>
+      <td>${r._desig||""}</td>
+      <td>${r._place||""}</td>
+      <td>${telHTML(r._phone||"")}</td>
+    </tr>
+  `).join("");
+
+  count.textContent = `${filtered.length} shown`;
+}
+
+fetch("contacts.csv").then(r=>r.text()).then(txt=>{
+  Papa.parse(txt, {
+    header: true,
+    skipEmptyLines: true,
+    complete: res=>{
+      const raw = res.data.filter(r => ( (r["Designation"]||"").toString().toUpperCase() !== "TOTAL CONTACTS" ));
+      const kmap = raw.length ? buildKeyMap(raw[0]) : {};
+
+      rows = raw.map(r=>{
+        const name  = getVal(r, kmap, ["Name"]);
+        const batch = getVal(r, kmap, ["MBBS Batch","Batch"]);
+        const desig = getVal(r, kmap, ["Designation","Your Designation"]);
+        const place = getVal(r, kmap, ["Place of Work","Place"]);
+        const phone = getVal(r, kmap, ["Contact no","Contact","Phone"]);
+
+        return {
+          _name: name,
+          _batch: batch,
+          _desig: desig,
+          _place: place,
+          _phone: phone,
+          _placeofwork: place
+        };
+      });
+
+      draw();
+    }
+  });
+});
+q.addEventListener("input", draw);
+document.querySelectorAll("#tbl thead th").forEach(th=>{
+  th.addEventListener("click", ()=>{
+    const label = th.getAttribute("data-k") || th.textContent;
+    const nk = normalizeKey(label);
+    if (sortKey === nk) { sortDir *= -1; } else { sortKey = nk; sortDir = 1; }
+    draw();
+  });
+});
+</script>
+</body>
+</html>
