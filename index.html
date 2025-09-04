@@ -129,7 +129,8 @@ function draw(){
   count.textContent = `${filtered.length} shown`;
 }
 
-fetch("contacts.csv").then(r=>r.text()).then(txt=>{
+// Cache-busting CSV fetch
+fetch("contacts.csv?v=" + Date.now()).then(r=>r.text()).then(txt=>{
   Papa.parse(txt, {
     header: true,
     skipEmptyLines: true,
@@ -160,6 +161,7 @@ fetch("contacts.csv").then(r=>r.text()).then(txt=>{
     }
   });
 });
+
 q.addEventListener("input", draw);
 document.querySelectorAll("#tbl thead th").forEach(th=>{
   th.addEventListener("click", ()=>{
