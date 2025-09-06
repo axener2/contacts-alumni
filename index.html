@@ -9,9 +9,7 @@
   <title>Sutams Alumni Directory</title>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" />
   <style>
-    /* ensure inputs don't overflow */
     *, *::before, *::after { box-sizing: border-box; }
-
     body{
       margin:0; padding:0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -54,9 +52,7 @@
 
     table{ width:100%; margin-top:14px; background:#fff; border-radius:12px; overflow:hidden; }
     table.dataTable thead th{ background:#f8fafc; }
-
-    /* make the DataTables 'Universal Search:' label bold */
-    #contacts_filter label{ font-weight:700; }
+    #contacts_filter label{ font-weight:700; } /* bold 'Universal Search:' */
   </style>
 </head>
 <body>
@@ -181,6 +177,9 @@
       }catch{ return false; }
     }
 
+    /* Guard to suppress UI during Firebase's auto sign-in after create */
+    let suppressAuthUI = false;
+
     /* Sign up */
     signUpBtn.addEventListener('click', async (e)=>{
       e.preventDefault();
@@ -210,14 +209,19 @@
           setMsg(upMsg,'Not authorised to sign up. Contact administrator.', false);
           return;
         }
+
+        suppressAuthUI = true;                       // prevent flicker UI
         const cred = await auth.createUserWithEmailAndPassword(email, pwd);
         await cred.user.updateProfile({displayName:name});
-        await auth.signOut();               // don’t auto-login
-        inEmail.value = email;              // prefill sign-in
-        upPassword.value = '';              // clear
+        await auth.signOut();                        // immediately sign out
+        suppressAuthUI = false;                      // re-enable listener UI
+
+        inEmail.value = email;                       // prefill sign-in
+        upPassword.value = '';                       // clear password field
         tabSignIn.click();
         setMsg(inMsg,'Sign-up successful. Please sign in.', true);
       }catch(e){
+        suppressAuthUI = false;
         if(e.code === 'auth/email-already-in-use'){
           inEmail.value = email; tabSignIn.click();
           setMsg(inMsg,'Account already exists. Please sign in or use “Forgot password”.', true);
@@ -250,18 +254,13 @@
       try{
         await auth.signInWithEmailAndPassword(email, pwd);
       }catch(e){
-        // show friendly text for common auth errors
-        const friendlyCodes = new Set([
+        const friendly = new Set([
           'auth/invalid-login-credentials',
           'auth/invalid-credential',
           'auth/user-not-found',
           'auth/wrong-password'
         ]);
-        if (friendlyCodes.has(e.code)) {
-          setMsg(inMsg,'Invalid email or password.', false);
-        } else {
-          setMsg(inMsg,'Sign in failed. Please try again.', false);
-        }
+        setMsg(inMsg, friendly.has(e.code) ? 'Invalid email or password.' : 'Sign in failed. Please try again.', false);
         clearPw();
       } finally {
         setBusy(signInBtn, false, 'Sign in');
@@ -283,6 +282,8 @@
 
     /* Auth state */
     auth.onAuthStateChanged(async (user)=>{
+      if(suppressAuthUI) return;    // <— key line: ignore auto-login during signup
+
       if(user){
         const emailLower = (user.email||'').toLowerCase();
         if(!(await isAllowed(emailLower))){
