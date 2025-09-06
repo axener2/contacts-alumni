@@ -1,180 +1,216 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>Sutams Alumni Directory</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow">
-<style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:20px}
-  h1{margin:0 0 12px}
-  .row{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
-  label{font-weight:bold}
-  input[type="search"]{padding:8px;border:1px solid #ccc;min-width:260px}
-  table{width:100%;border-collapse:collapse;margin-top:10px}
-  th,td{border:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}
-  th{background:#f6f6f6;cursor:pointer}
-  .muted{color:#666}
-  a {color: #007b00; text-decoration: none;}
-  a:hover {text-decoration: underline;}
-</style>
+  <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sutams Alumni Directory</title>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+  <style>
+    body {font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f6f8;}
+    .container {max-width: 1000px; margin: 0 auto; padding: 20px; position: relative;}
+    .pageTitle {text-align: center; margin: 40px 0 20px; font-size: 26px; font-weight: 700;}
+    .card {background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 0 auto; max-width: 420px;}
+    .card h2 {margin-top: 0;}
+    input[type="email"] {width: 100%; padding: 10px; margin: 10px 0; border-radius: 4px; border: 1px solid #ccc;}
+    .btn {background: #28a745; color: #fff; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer;}
+    .btn:hover {background: #218838;}
+    .pill {background: #e9ecef; padding: 5px 10px; border-radius: 20px; margin-right: 10px;}
+    .topRight {position: absolute; top: 20px; right: 20px;}
+    .hide {display: none;}
+    table {width: 100%; margin-top: 20px; border-collapse: collapse;}
+    th, td {padding: 8px; border: 1px solid #ddd; text-align: left;}
+  </style>
 </head>
 <body>
-<h1>Sutams Alumni Directory</h1>
+  <div class="container">
 
-<div class="row">
-  <label for="q">Universal Search:</label>
-  <input id="q" type="search" placeholder="Search name, batch, designation, place, phone…" />
-  <span id="count" class="muted"></span>
-</div>
+    <!-- Centered Heading -->
+    <h1 class="pageTitle">Sutams Alumni Directory</h1>
 
-<table id="tbl">
-  <thead>
-    <tr>
-      <th data-k="S.No">S.No</th>
-      <th data-k="Name">Name</th>
-      <th data-k="MBBS Batch">MBBS Batch</th>
-      <th data-k="Designation">Designation</th>
-      <th data-k="Place of Work">Place of Work</th>
-      <th data-k="Contact no">Contact</th>
-      <th data-k="WhatsApp">WhatsApp</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
+    <!-- User chip & logout -->
+    <div id="userBox" class="hide topRight">
+      <span id="who" class="pill"></span>
+      <button id="logoutBtn" class="btn">Log out</button>
+    </div>
 
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script>
-let rows = [];
-let sortKey = "mbbsbatch";   // default sort by batch
-let sortDir = 1;
+    <!-- Login box -->
+    <section id="loginCard" class="card login">
+      <h2>Sign in</h2>
+      <p>Enter your email to receive a <b>login link</b>. Only allow-listed alumni can access.</p>
+      <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+      <label><input type="checkbox" id="rememberMe" checked> Remember this device (14 days max)</label><br><br>
+      <button id="loginBtn" class="btn">Send login link</button>
+      <p style="font-size:12px;color:#555;margin-top:10px;">Tip: keep this tab open; click the link in your email. You’ll return here and be signed in.</p>
+    </section>
 
-const tbody = document.querySelector("#tbl tbody");
-const q = document.getElementById("q");
-const count = document.getElementById("count");
+    <!-- Protected directory -->
+    <section id="app" class="hide">
+      <table id="contacts" class="display"></table>
+    </section>
+  </div>
 
-function normalizeKey(s) {
-  if (!s) return "";
-  return String(s).replace(/\u00a0/g, " ").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
-}
+  <!-- Firebase (compat) + DataTables + PapaParse -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <!-- Uncomment if you enable allow-list via Firestore:
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-function buildKeyMap(obj) {
-  const map = {};
-  Object.keys(obj).forEach(k => { map[normalizeKey(k)] = k; });
-  return map;
-}
+  <script>
+    /* ====== Firebase config (from Console) ====== */
+    const firebaseConfig = {
+      apiKey: "AIzaSyAwj6GtC65Q8-xCa3BCLwxGJ8vUArOAHUY",
+      authDomain: "sutams-alumni.firebaseapp.com",
+      projectId: "sutams-alumni",
+      storageBucket: "sutams-alumni.appspot.com",
+      messagingSenderId: "817072662829",
+      appId: "1:817072662829:web:0ecf3be2338326fb37cba4",
+      measurementId: "G-6T86CT10TP"
+    };
 
-function getVal(row, kmap, candidates) {
-  for (const c of candidates) {
-    const nk = normalizeKey(c);
-    const actual = kmap[nk];
-    if (actual && row[actual] != null && row[actual] !== "") return row[actual];
-  }
-  for (const key in kmap) {
-    if (candidates.some(c => key.includes(normalizeKey(c)))) {
-      const actual = kmap[key];
-      if (row[actual] != null && row[actual] !== "") return row[actual];
+    // Initialize Firebase (compat style)
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    // const db = firebase.firestore(); // enable only if you turn on allow-list
+
+    /* ====== DOM refs ====== */
+    const loginCard = document.getElementById('loginCard');
+    const appSection = document.getElementById('app');
+    const loginBtn = document.getElementById('loginBtn');
+    const emailInput = document.getElementById('email');
+    const who = document.getElementById('who');
+    const userBox = document.getElementById('userBox');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    /* ====== Session: 14 days only (no idle timeout) ====== */
+    const SESSION_LIMIT_MS = 14*24*60*60*1000;
+    const sessKey = 'sessStart';
+    const now = () => Date.now();
+
+    /* ====== Email-link login flow ====== */
+    loginBtn.addEventListener('click', async () => {
+      const email = emailInput.value.trim();
+      if (!email) return alert("Enter your email");
+      const actionCodeSettings = { url: window.location.href, handleCodeInApp: true };
+      try {
+        await auth.sendSignInLinkToEmail(email, actionCodeSettings);
+        window.localStorage.setItem('emailForSignIn', email);
+        alert("Login link sent to " + email);
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
+    });
+
+    if (auth.isSignInWithEmailLink(window.location.href)) {
+      let email = window.localStorage.getItem('emailForSignIn');
+      if (!email) email = window.prompt("Confirm your email");
+      auth.signInWithEmailLink(email, window.location.href)
+        .then(() => window.localStorage.removeItem('emailForSignIn'))
+        .catch(err => alert("Error: " + err.message));
     }
-  }
-  return "";
-}
 
-function telHTML(val){
-  if(!val) return "";
-  const digits = (""+val).replace(/\D/g,"");
-  if(!digits) return "";
-  const withCC = digits.length===10 ? "+91"+digits
-               : digits.startsWith("91") ? "+"+digits
-               : "+"+digits;
-  return `<a href="tel:${withCC}">${withCC}</a>`;
-}
+    auth.onAuthStateChanged(user => {
+      if (user) afterLogin(user);
+      else {
+        loginCard.classList.remove('hide');
+        appSection.classList.add('hide');
+        userBox.classList.add('hide');
+      }
+    });
 
-function waHTML(val){
-  if(!val) return "";
-  const digits = (""+val).replace(/\D/g,"");
-  if(!digits) return "";
-  const withCC = digits.length===10 ? "91"+digits
-               : digits.startsWith("91") ? digits
-               : digits;
-  return `<a href="https://wa.me/${withCC}" target="_blank">Chat</a>`;
-}
+    logoutBtn.addEventListener('click', () => auth.signOut());
 
-function draw(){
-  const term = q.value.trim().toLowerCase();
+    /* ====== Post-login (optional allow-list, then load CSV) ====== */
+    async function afterLogin(user){
+      // 14-day session timer
+      if(!window.localStorage.getItem(sessKey)) {
+        window.localStorage.setItem(sessKey, String(now()));
+      }
+      setInterval(() => {
+        const start = parseInt(window.localStorage.getItem(sessKey) || "0");
+        if (now() - start > SESSION_LIMIT_MS) auth.signOut();
+      }, 60*1000);
 
-  const filtered = rows.filter(r=>{
-    const text = [r._name, r._batch, r._desig, r._place, r._phone, r._wa]
-      .join(" ").toLowerCase();
-    return text.includes(term);
-  });
+      // Optional allow-list (uncomment if using Firestore allowlist)
+      /*
+      const doc = await db.collection('allowlist').doc(user.email.toLowerCase()).get();
+      if (!doc.exists) {
+        alert("This email isn’t authorised for the directory.");
+        await auth.signOut();
+        return;
+      }
+      */
 
-  // default sort by batch then name
-  filtered.sort((a,b)=>{
-    const A_batch = parseInt(a._batch)||0;
-    const B_batch = parseInt(b._batch)||0;
-    if(A_batch !== B_batch) return (A_batch - B_batch) * sortDir;
+      who.textContent = user.email;
+      loginCard.classList.add('hide');
+      appSection.classList.remove('hide');
+      userBox.classList.remove('hide');
 
-    const A = (a._name||"").toLowerCase();
-    const B = (b._name||"").toLowerCase();
-    return A < B ? -1*sortDir : A > B ? 1*sortDir : 0;
-  });
+      loadContacts(); // CSV from repo
+    }
 
-  tbody.innerHTML = filtered.map((r,i)=>`
-    <tr>
-      <td>${i+1}</td>
-      <td>${r._name||""}</td>
-      <td>${r._batch||""}</td>
-      <td>${r._desig||""}</td>
-      <td>${r._place||""}</td>
-      <td>${telHTML(r._phone||"")}</td>
-      <td>${waHTML(r._wa||"")}</td>
-    </tr>
-  `).join("");
+    /* ====== Load contacts.csv (with cache-busting) ====== */
+    function loadContacts() {
+      const CSV_URL = "contacts.csv?v=" + Date.now();
+      Papa.parse(CSV_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          const rows = results.data.map((row, i) => {
+            const name  = row["Name"] || "";
+            const batch = String(row["MBBS Batch"] || "").replace(/\.0+$/,"");
+            const desig = row["Designation"] || "";
+            const place = row["Place of Work"] || row["Place"] || "";
+            const phoneRaw = row["Contact no"] || row["Contact"] || "";
+            const digits = (phoneRaw+"").replace(/[^0-9]/g,'');
+            const tel = digits ? (digits.length===10 ? "+91"+digits
+                        : digits.startsWith("91") ? "+"+digits : "+"+digits) : "";
+            const wa  = digits ? (digits.length===10 ? "91"+digits
+                        : digits.startsWith("91") ? digits : digits) : "";
+            return [
+              i + 1,
+              name,
+              batch,
+              desig,
+              place,
+              tel ? `<a href="tel:${tel}">${tel}</a>` : "",
+              wa  ? `<a href="https://wa.me/${wa}" target="_blank">Chat</a>` : ""
+            ];
+          });
 
-  count.textContent = `${filtered.length} shown`;
-}
+          // Sort by Batch asc, then Name A–Z
+          rows.sort((a,b)=>{
+            const Ab = parseInt(a[2])||0, Bb = parseInt(b[2])||0;
+            if(Ab!==Bb) return Ab-Bb;
+            return (a[1]||"").localeCompare(b[1]||"");
+          });
 
-// Cache-busting CSV fetch
-fetch("contacts.csv?v=" + Date.now()).then(r=>r.text()).then(txt=>{
-  Papa.parse(txt, {
-    header: true,
-    skipEmptyLines: true,
-    complete: res=>{
-      const raw = res.data.filter(r => ( (r["Designation"]||"").toString().toUpperCase() !== "TOTAL CONTACTS" ));
-      const kmap = raw.length ? buildKeyMap(raw[0]) : {};
-
-      rows = raw.map(r=>{
-        const name  = getVal(r, kmap, ["Name"]);
-        const batch = getVal(r, kmap, ["MBBS Batch","Batch"]);
-        const desig = getVal(r, kmap, ["Designation","Your Designation"]);
-        const place = getVal(r, kmap, ["Place of Work","Place"]);
-        const phone = getVal(r, kmap, ["Contact no","Contact","Phone"]);
-        const wa    = getVal(r, kmap, ["WhatsApp"]);
-
-        return {
-          _name: name,
-          _batch: batch,
-          _desig: desig,
-          _place: place,
-          _phone: phone,
-          _wa: wa
-        };
+          $('#contacts').DataTable({
+            data: rows,
+            destroy: true,
+            columns: [
+              { title: "S.No" },
+              { title: "Name" },
+              { title: "MBBS Batch" },
+              { title: "Designation" },
+              { title: "Place of Work" },
+              { title: "Contact" },
+              { title: "WhatsApp" }
+            ],
+            pageLength: 25,
+            order: [[2, "asc"], [1, "asc"]],
+            responsive: true
+          });
+        }
       });
-
-      draw();
     }
-  });
-});
-
-q.addEventListener("input", draw);
-document.querySelectorAll("#tbl thead th").forEach(th=>{
-  th.addEventListener("click", ()=>{
-    const label = th.getAttribute("data-k") || th.textContent;
-    const nk = normalizeKey(label);
-    if (sortKey === nk) { sortDir *= -1; } else { sortKey = nk; sortDir = 1; }
-    draw();
-  });
-});
-</script>
+  </script>
 </body>
 </html>
