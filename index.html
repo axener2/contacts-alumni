@@ -9,6 +9,9 @@
   <title>Sutams Alumni Directory</title>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" />
   <style>
+    /* layout fix so inputs never overflow */
+    *, *::before, *::after { box-sizing: border-box; }
+
     body{
       margin:0; padding:0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -30,10 +33,10 @@
     .btn:hover{ filter:brightness(1.05); }
     .btn.danger{ background:linear-gradient(180deg,#ef4444,#dc2626); }
     .btn[disabled]{ opacity:.75; cursor:not-allowed; }
-    .fullBtn{ display:block; width:60%; max-width:240px; margin:8px auto 0; }
+    .fullBtn{ display:block; width:65%; max-width:280px; margin:8px auto 0; }
 
     .card{
-      background:#fff; border-radius:14px; padding:22px; max-width:480px; margin:16px auto 22px;
+      background:#fff; border-radius:14px; padding:22px; max-width:520px; margin:16px auto 22px;
       box-shadow:0 20px 35px rgba(15,23,42,.08), 0 2px 6px rgba(15,23,42,.08);
       backdrop-filter: blur(3px);
     }
@@ -148,28 +151,21 @@
     function setMsg(el, text, ok=true){ el.className = ok ? 'success' : 'error'; el.textContent = text; el.classList.remove('hide'); }
     function clearMsgs(){ [inMsg, upMsg].forEach(x=>{x.textContent=''; x.classList.add('hide');}); }
     function clearPw(){ inPassword.value=''; upPassword.value=''; }
-    function touchInvalid(input, bad){
-      input.classList.toggle('invalid', !!bad);
-    }
+    function touchInvalid(input, bad){ input.classList.toggle('invalid', !!bad); }
     function missingFieldsReport(name, email, pwd){
-      const miss = [];
-      if(!name)  miss.push('Name');
-      if(!email) miss.push('Email');
-      if(!pwd)   miss.push('Password');
+      const miss = []; if(!name) miss.push('Name'); if(!email) miss.push('Email'); if(!pwd) miss.push('Password');
       return miss.length ? ('Missing: ' + miss.join(', ') + '.') : '';
     }
     function setBusy(btn, busy, normal, busyTxt){
-      if(!btn) return;
-      btn.disabled = !!busy;
-      btn.textContent = busy ? (busyTxt||'Please wait…') : (normal||btn.textContent);
+      if(!btn) return; btn.disabled = !!busy; btn.textContent = busy ? (busyTxt||'Please wait…') : (normal||btn.textContent);
     }
 
     /* Tabs */
-    tabSignIn.onclick = (e) => { e.preventDefault(); clearMsgs(); clearPw();
+    tabSignIn.onclick = (e) => { e.preventDefault(); clearMsgs();
       tabSignIn.classList.add('active'); tabSignUp.classList.remove('active');
       signInForm.classList.remove('hide'); signUpForm.classList.add('hide');
     };
-    tabSignUp.onclick = (e) => { e.preventDefault(); clearMsgs(); clearPw();
+    tabSignUp.onclick = (e) => { e.preventDefault(); clearMsgs();
       tabSignUp.classList.add('active'); tabSignIn.classList.remove('active');
       signUpForm.classList.remove('hide'); signInForm.classList.add('hide');
     };
@@ -182,10 +178,10 @@
       }catch{ return false; }
     }
 
-    /* Sign up */
+    /* Sign up (Fix: DO NOT clear password first) */
     signUpBtn.addEventListener('click', async (e)=>{
       e.preventDefault();
-      clearMsgs(); clearPw();
+      clearMsgs();
 
       const name = (upName.value || '').trim();
       const email= (upEmail.value||'').trim().toLowerCase();
@@ -213,8 +209,10 @@
         }
         const cred = await auth.createUserWithEmailAndPassword(email, pwd);
         await cred.user.updateProfile({displayName:name});
-        await auth.signOut();
-        inEmail.value = email; clearPw(); tabSignIn.click();
+        await auth.signOut();               // don't auto-login
+        inEmail.value = email;              // prefill sign-in
+        upPassword.value = '';              // clear
+        tabSignIn.click();
         setMsg(inMsg,'Sign-up successful. Please sign in.', true);
       }catch(e){
         if(e.code === 'auth/email-already-in-use'){
@@ -232,7 +230,7 @@
       }
     });
 
-    /* Sign in */
+    /* Sign in (Fix: DO NOT clear password first) */
     signInBtn.addEventListener('click', async (e)=>{
       e.preventDefault();
       clearMsgs();
