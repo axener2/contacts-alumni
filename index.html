@@ -9,7 +9,7 @@
   <title>Sutams Alumni Directory</title>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" />
   <style>
-    /* layout fix so inputs never overflow */
+    /* ensure inputs don't overflow */
     *, *::before, *::after { box-sizing: border-box; }
 
     body{
@@ -54,6 +54,9 @@
 
     table{ width:100%; margin-top:14px; background:#fff; border-radius:12px; overflow:hidden; }
     table.dataTable thead th{ background:#f8fafc; }
+
+    /* make the DataTables 'Universal Search:' label bold */
+    #contacts_filter label{ font-weight:700; }
   </style>
 </head>
 <body>
@@ -178,7 +181,7 @@
       }catch{ return false; }
     }
 
-    /* Sign up (Fix: DO NOT clear password first) */
+    /* Sign up */
     signUpBtn.addEventListener('click', async (e)=>{
       e.preventDefault();
       clearMsgs();
@@ -209,7 +212,7 @@
         }
         const cred = await auth.createUserWithEmailAndPassword(email, pwd);
         await cred.user.updateProfile({displayName:name});
-        await auth.signOut();               // don't auto-login
+        await auth.signOut();               // don’t auto-login
         inEmail.value = email;              // prefill sign-in
         upPassword.value = '';              // clear
         tabSignIn.click();
@@ -223,14 +226,14 @@
         }else if(e.code === 'auth/network-request-failed'){
           setMsg(upMsg,'Network error. Please try again.', false);
         }else{
-          setMsg(upMsg, e.message, false);
+          setMsg(upMsg,'Sign up failed. Please try again.', false);
         }
       } finally {
         setBusy(signUpBtn, false, 'Create account');
       }
     });
 
-    /* Sign in (Fix: DO NOT clear password first) */
+    /* Sign in — friendly errors only */
     signInBtn.addEventListener('click', async (e)=>{
       e.preventDefault();
       clearMsgs();
@@ -244,12 +247,20 @@
       }
 
       setBusy(signInBtn, true, 'Sign in', 'Signing in…');
-      try{ await auth.signInWithEmailAndPassword(email, pwd); }
-      catch(e){
-        if(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential'){
-          setMsg(inMsg,'Incorrect email or password.', false);
-        }else{
-          setMsg(inMsg, e.message, false);
+      try{
+        await auth.signInWithEmailAndPassword(email, pwd);
+      }catch(e){
+        // show friendly text for common auth errors
+        const friendlyCodes = new Set([
+          'auth/invalid-login-credentials',
+          'auth/invalid-credential',
+          'auth/user-not-found',
+          'auth/wrong-password'
+        ]);
+        if (friendlyCodes.has(e.code)) {
+          setMsg(inMsg,'Invalid email or password.', false);
+        } else {
+          setMsg(inMsg,'Sign in failed. Please try again.', false);
         }
         clearPw();
       } finally {
@@ -258,12 +269,12 @@
     });
 
     /* Reset password */
-    forgotPwd.addEventListener('click', async (e)=>{
+    document.getElementById('forgotPwd').addEventListener('click', async (e)=>{
       e.preventDefault();
       const email = (inEmail.value||prompt('Enter your email for a reset link:')||'').trim().toLowerCase();
       if(!email) return;
       try{ await auth.sendPasswordResetEmail(email); setMsg(inMsg, 'Password reset email sent to ' + email, true); }
-      catch(e){ setMsg(inMsg, e.message, false); }
+      catch{ setMsg(inMsg, 'Could not send reset email. Try again later.', false); }
     });
 
     /* Session cap: 14 days */
@@ -335,11 +346,11 @@
             responsive:true,
             language:{
               search: 'Universal Search:',
-              searchPlaceholder: 'Search name, MBBS batch, designation, place of work, phone…'
+              searchPlaceholder: 'Search name, batch, designation, place, phone…'
             }
           });
         },
-        error:(err)=> alert('Failed to load contacts: '+(err?.message||err))
+        error:()=> alert('Failed to load contacts.')
       });
     }
   });
