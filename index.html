@@ -9,18 +9,28 @@
   <title>Sutams Alumni Directory</title>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
   <style>
-    body {font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f6f8;}
-    .container {max-width: 1000px; margin: 0 auto; padding: 20px; position: relative;}
-    .pageTitle {text-align: center; margin: 40px 0 20px; font-size: 26px; font-weight: 700;}
-    .card {background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 0 auto; max-width: 420px;}
-    .card h2 {margin-top: 0;}
-    .btn {background: #4285F4; color: #fff; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer;}
-    .btn:hover {opacity: 0.95;}
-    .pill {background: #e9ecef; padding: 5px 10px; border-radius: 20px; margin-right: 10px;}
-    .topRight {position: absolute; top: 20px; right: 20px;}
-    .hide {display: none;}
-    table {width: 100%; margin-top: 20px; border-collapse: collapse;}
-    th, td {padding: 8px; border: 1px solid #ddd; text-align: left;}
+    body {font-family: Arial, sans-serif; margin:0; padding:0; background:#f4f6f8;}
+    .container {max-width:1000px; margin:0 auto; padding:20px; position:relative;}
+    .pageTitle {text-align:center; margin:40px 0 20px; font-size:26px; font-weight:700;}
+    .card {background:#fff; border-radius:8px; padding:20px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin:0 auto; max-width:460px;}
+    .card h2 {margin-top:0}
+    .row {display:flex; gap:10px}
+    .row > * {flex:1}
+    input {width:100%; padding:10px; margin:8px 0; border-radius:4px; border:1px solid #ccc;}
+    .btn {background:#111827; color:#fff; padding:10px 16px; border:none; border-radius:4px; cursor:pointer;}
+    .btn.secondary {background:#6b7280}
+    .btn.danger {background:#dc3545}
+    .btn:hover {opacity:.95}
+    .pill {background:#e9ecef; padding:5px 10px; border-radius:20px; margin-right:10px;}
+    .topRight {position:absolute; top:20px; right:20px;}
+    .hide {display:none}
+    .tabs {display:flex; gap:8px; margin-bottom:8px}
+    .tabs button {background:#e5e7eb; border:none; padding:8px 12px; border-radius:6px; cursor:pointer}
+    .tabs .active {background:#111827; color:#fff}
+    table{width:100%; margin-top:20px; border-collapse:collapse}
+    th,td{padding:8px; border:1px solid #ddd; text-align:left}
+    .muted{font-size:12px; color:#6b7280}
+    .error{color:#b91c1c; font-size:13px}
   </style>
 </head>
 <body>
@@ -31,15 +41,38 @@
     <!-- User info & logout -->
     <div id="userBox" class="hide topRight">
       <span id="who" class="pill"></span>
-      <button id="logoutBtn" class="btn" style="background:#dc3545">Log out</button>
+      <button id="logoutBtn" class="btn danger">Log out</button>
     </div>
 
-    <!-- Login card -->
-    <section id="loginCard" class="card login">
-      <h2>Sign in</h2>
-      <p>Use your Google account. Only allow-listed alumni can access.</p>
-      <button id="googleBtn" class="btn">Continue with Google</button>
-      <p style="font-size:12px;color:#555;margin-top:10px;">Pick a Google account to continue. No emails or OTPs.</p>
+    <!-- Auth card -->
+    <section id="authCard" class="card">
+      <div class="tabs">
+        <button id="tabSignIn"  class="active">Sign in</button>
+        <button id="tabSignUp">Create account</button>
+      </div>
+
+      <!-- Sign in -->
+      <div id="signInForm">
+        <h2>Sign in</h2>
+        <input type="email" id="inEmail" placeholder="Email">
+        <input type="password" id="inPassword" placeholder="Password">
+        <button id="signInBtn" class="btn">Sign in</button>
+        <p class="muted">Only allow-listed alumni can access.</p>
+        <p id="inErr" class="error"></p>
+      </div>
+
+      <!-- Sign up -->
+      <div id="signUpForm" class="hide">
+        <h2>Create account</h2>
+        <div class="row">
+          <input type="text" id="upName" placeholder="Full name">
+        </div>
+        <input type="email" id="upEmail" placeholder="Email">
+        <input type="password" id="upPassword" placeholder="Password (min 6 chars)">
+        <button id="signUpBtn" class="btn">Create account</button>
+        <p class="muted">Your email must already be on the allow-list; otherwise sign-up is blocked.</p>
+        <p id="upErr" class="error"></p>
+      </div>
     </section>
 
     <!-- Protected directory -->
@@ -57,7 +90,7 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
-    /* ====== Firebase config (yours) ====== */
+    /* ====== Your Firebase config ====== */
     const firebaseConfig = {
       apiKey: "AIzaSyAwj6GtC65Q8-xCa3BCLwxGJ8vUArOAHUY",
       authDomain: "sutams-alumni.firebaseapp.com",
@@ -69,35 +102,133 @@
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
-    const db = firebase.firestore();
+    const db   = firebase.firestore();
 
-    /* DOM */
-    const loginCard = document.getElementById('loginCard');
-    const appSection   = document.getElementById('app');
-    const googleBtn    = document.getElementById('googleBtn');
-    const who          = document.getElementById('who');
-    const userBox      = document.getElementById('userBox');
-    const logoutBtn    = document.getElementById('logoutBtn');
+    /* ====== DOM ====== */
+    const authCard   = document.getElementById('authCard');
+    const appSection = document.getElementById('app');
+    const who        = document.getElementById('who');
+    const userBox    = document.getElementById('userBox');
+    const logoutBtn  = document.getElementById('logoutBtn');
 
-    /* Session (14 days only) */
+    // Tabs
+    const tabSignIn  = document.getElementById('tabSignIn');
+    const tabSignUp  = document.getElementById('tabSignUp');
+    const signInForm = document.getElementById('signInForm');
+    const signUpForm = document.getElementById('signUpForm');
+
+    tabSignIn.onclick = () => {
+      tabSignIn.classList.add('active'); tabSignUp.classList.remove('active');
+      signInForm.classList.remove('hide'); signUpForm.classList.add('hide');
+    };
+    tabSignUp.onclick = () => {
+      tabSignUp.classList.add('active'); tabSignIn.classList.remove('active');
+      signUpForm.classList.remove('hide'); signInForm.classList.add('hide');
+    };
+
+    // Inputs
+    const inEmail = document.getElementById('inEmail');
+    const inPassword = document.getElementById('inPassword');
+    const signInBtn = document.getElementById('signInBtn');
+    const inErr = document.getElementById('inErr');
+
+    const upName = document.getElementById('upName');
+    const upEmail = document.getElementById('upEmail');
+    const upPassword = document.getElementById('upPassword');
+    const signUpBtn = document.getElementById('signUpBtn');
+    const upErr = document.getElementById('upErr');
+
+    /* ====== Session: 14 days ====== */
     const SESSION_LIMIT_MS = 14*24*60*60*1000;
     const sessKey = 'sessStart';
     const now = () => Date.now();
 
-    /* Google sign-in */
-    const provider = new firebase.auth.GoogleAuthProvider();
-    googleBtn.addEventListener('click', async () => {
+    /* ====== Helpers ====== */
+    const toLower = s => (s||"").trim().toLowerCase();
+
+    async function isAllowedEmail(emailLower){
+      // check allowlist/<emailLower>
       try {
-        await auth.signInWithPopup(provider);
-      } catch (err) {
-        alert("Sign-in failed: " + err.message);
+        const doc = await db.collection('allowlist').doc(emailLower).get();
+        return doc.exists;
+      } catch (e) {
+        console.warn('allowlist read failed', e);
+        // Fail safe: block when unsure
+        return false;
+      }
+    }
+
+    /* ====== Sign up (Name + Email + Password) ====== */
+    signUpBtn.addEventListener('click', async () => {
+      upErr.textContent = '';
+      const name  = upName.value.trim();
+      const email = toLower(upEmail.value);
+      const pwd   = upPassword.value;
+
+      if (!name || !email || !pwd) {
+        upErr.textContent = 'Please fill name, email and password.';
+        return;
+      }
+
+      // Check allow-list BEFORE account creation
+      const allowed = await isAllowedEmail(email);
+      if (!allowed) {
+        upErr.textContent = 'This email is not authorised to sign up.';
+        return;
+      }
+
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, pwd);
+        // set displayName
+        await cred.user.updateProfile({ displayName: name });
+        // proceed -> onAuthStateChanged will trigger afterLogin
+      } catch (e) {
+        upErr.textContent = e.message;
       }
     });
 
-    auth.onAuthStateChanged(user => {
-      if (user) afterLogin(user);
-      else {
-        loginCard.classList.remove('hide');
+    /* ====== Sign in (Email + Password) ====== */
+    signInBtn.addEventListener('click', async () => {
+      inErr.textContent = '';
+      const email = toLower(inEmail.value);
+      const pwd   = inPassword.value;
+      if (!email || !pwd) { inErr.textContent = 'Enter email and password.'; return; }
+
+      try {
+        await auth.signInWithEmailAndPassword(email, pwd);
+        // afterLogin via onAuthStateChanged
+      } catch (e) {
+        inErr.textContent = e.message;
+      }
+    });
+
+    /* ====== Auth state ====== */
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        // Re-check allowlist at login too
+        const emailLower = toLower(user.email);
+        const allowed = await isAllowedEmail(emailLower);
+        if (!allowed) {
+          alert('This email is not authorised for the directory.');
+          await auth.signOut();
+          return;
+        }
+
+        if (!window.localStorage.getItem(sessKey)) {
+          window.localStorage.setItem(sessKey, String(now()));
+        }
+        setInterval(() => {
+          const start = parseInt(window.localStorage.getItem(sessKey) || "0");
+          if (now() - start > SESSION_LIMIT_MS) auth.signOut();
+        }, 60*1000);
+
+        who.textContent = user.displayName ? `${user.displayName} (${emailLower})` : emailLower;
+        authCard.classList.add('hide');
+        appSection.classList.remove('hide');
+        userBox.classList.remove('hide');
+        loadContacts();
+      } else {
+        authCard.classList.remove('hide');
         appSection.classList.add('hide');
         userBox.classList.add('hide');
       }
@@ -105,36 +236,9 @@
 
     logoutBtn.addEventListener('click', () => auth.signOut());
 
-    async function afterLogin(user){
-      // 14-day session timer
-      if(!window.localStorage.getItem(sessKey)) {
-        window.localStorage.setItem(sessKey, String(now()));
-      }
-      setInterval(() => {
-        const start = parseInt(window.localStorage.getItem(sessKey) || "0");
-        if (now() - start > SESSION_LIMIT_MS) auth.signOut();
-      }, 60*1000);
-
-      // === Firestore allow-list check ===
-      const email = (user.email || "").toLowerCase();
-      const doc = await db.collection('allowlist').doc(email).get();
-      if (!doc.exists) {
-        alert("This email isn’t authorised for the directory.");
-        await auth.signOut();
-        return;
-      }
-
-      who.textContent = email;
-      loginCard.classList.add('hide');
-      appSection.classList.remove('hide');
-      userBox.classList.remove('hide');
-
-      loadContacts();
-    }
-
-    /* Load CSV from GitHub Pages (cache-busting) */
+    /* ====== Load CSV (cache-busting) ====== */
     function loadContacts() {
-      const CSV_URL = "contacts.csv?v=" + Date.now(); // strong cache-buster
+      const CSV_URL = "contacts.csv?v=" + Date.now();
       Papa.parse(CSV_URL, {
         download: true,
         header: true,
@@ -169,7 +273,6 @@
             return (a[1]||"").localeCompare(b[1]||"");
           });
 
-          // Show ALL rows; still searchable & sortable
           $('#contacts').DataTable({
             data: rows,
             destroy: true,
