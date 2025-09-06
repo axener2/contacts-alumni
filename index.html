@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- discourage caching of HTML itself -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -28,16 +27,15 @@
 <body>
   <div class="container">
 
-    <!-- Heading -->
     <h1 class="pageTitle">Sutams Alumni Directory</h1>
 
-    <!-- User chip & logout -->
+    <!-- User info & logout -->
     <div id="userBox" class="hide topRight">
       <span id="who" class="pill"></span>
       <button id="logoutBtn" class="btn">Log out</button>
     </div>
 
-    <!-- Login box -->
+    <!-- Login card -->
     <section id="loginCard" class="card login">
       <h2>Sign in</h2>
       <p>Enter your email to receive a <b>login link</b>. Only allow-listed alumni can access.</p>
@@ -53,26 +51,30 @@
     </section>
   </div>
 
-  <!-- Firebase (compat) + DataTables + PapaParse -->
+  <!-- Firebase + libs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
-    /* ====== Firebase config (replace with yours) ====== */
+    /* ====== Firebase config ====== */
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyAwj6GtC65Q8-xCa3BCLwxGJ8vUArOAHUY",
+      authDomain: "sutams-alumni.firebaseapp.com",
+      projectId: "sutams-alumni",
+      storageBucket: "sutams-alumni.firebasestorage.app",
+      messagingSenderId: "817072662829",
+      appId: "1:817072662829:web:0ecf3be2338326fb37cba4",
+      measurementId: "G-6T86CT10TP"
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
-    // If you later add Firestore allow-list: const db = firebase.firestore();
+    const db = firebase.firestore();
 
-    /* ====== DOM refs ====== */
+    /* DOM */
     const loginCard = document.getElementById('loginCard');
     const appSection = document.getElementById('app');
     const loginBtn = document.getElementById('loginBtn');
@@ -81,25 +83,20 @@
     const userBox = document.getElementById('userBox');
     const logoutBtn = document.getElementById('logoutBtn');
 
-    /* ====== Session: 14 days only (no idle timeout) ====== */
+    /* Session */
     const SESSION_LIMIT_MS = 14*24*60*60*1000;
     const sessKey = 'sessStart';
     const now = () => Date.now();
 
-    /* ====== Email-link login (no confirm prompt) ======
-       We stash the email in localStorage and also add ?e=<email> to the link,
-       so when the link opens in a new tab/app we can read it and avoid prompting. */
+    /* Email link login */
     loginBtn.addEventListener('click', async () => {
       const email = emailInput.value.trim().toLowerCase();
       if (!email) return alert("Enter your email");
 
       const url = new URL(window.location.href);
-      url.searchParams.set('e', email); // include email in continue URL
+      url.searchParams.set('e', email);
 
-      const actionCodeSettings = {
-        url: url.toString(),
-        handleCodeInApp: true
-      };
+      const actionCodeSettings = { url: url.toString(), handleCodeInApp: true };
       try {
         await auth.sendSignInLinkToEmail(email, actionCodeSettings);
         window.localStorage.setItem('emailForSignIn', email);
@@ -115,7 +112,7 @@
         const params = new URL(window.location.href).searchParams;
         email = (params.get('e') || "").trim().toLowerCase();
       }
-      if (!email) email = window.prompt("Confirm your email"); // absolute fallback
+      if (!email) email = window.prompt("Confirm your email");
       auth.signInWithEmailLink(email, window.location.href)
         .then(() => window.localStorage.removeItem('emailForSignIn'))
         .catch(err => alert("Error: " + err.message));
@@ -132,8 +129,8 @@
 
     logoutBtn.addEventListener('click', () => auth.signOut());
 
+    /* Post login with allow-list */
     async function afterLogin(user){
-      // 14-day session timer
       if(!window.localStorage.getItem(sessKey)) {
         window.localStorage.setItem(sessKey, String(now()));
       }
@@ -142,21 +139,25 @@
         if (now() - start > SESSION_LIMIT_MS) auth.signOut();
       }, 60*1000);
 
-      // Optional: Firestore allow-list check could go here
+      // === Allow-list check ===
+      const doc = await db.collection('allowlist').doc(user.email.toLowerCase()).get();
+      if (!doc.exists) {
+        alert("This email isn’t authorised for the directory.");
+        await auth.signOut();
+        return;
+      }
 
       who.textContent = user.email;
       loginCard.classList.add('hide');
       appSection.classList.remove('hide');
       userBox.classList.remove('hide');
 
-      loadContactsFromGitHub(); // read from repo with cache-busting
+      loadContacts();
     }
 
-    /* ====== Load contacts.csv from GitHub Pages (cache-busting) ======
-       We append a version key that changes on each load so the browser
-       never serves a stale CSV. */
-    function loadContactsFromGitHub() {
-      const CSV_URL = "contacts.csv?v=" + Date.now(); // strong cache-buster
+    /* Load CSV with cache-busting */
+    function loadContacts() {
+      const CSV_URL = "contacts.csv?v=" + Date.now();
       Papa.parse(CSV_URL, {
         download: true,
         header: true,
@@ -184,14 +185,12 @@
             ];
           });
 
-          // Sort by Batch asc, then Name A–Z
           rows.sort((a,b)=>{
             const Ab = parseInt(a[2])||0, Bb = parseInt(b[2])||0;
             if(Ab!==Bb) return Ab-Bb;
             return (a[1]||"").localeCompare(b[1]||"");
           });
 
-          // Show ALL rows; still searchable & sortable
           $('#contacts').DataTable({
             data: rows,
             destroy: true,
@@ -204,7 +203,7 @@
               { title: "Contact" },
               { title: "WhatsApp" }
             ],
-            paging: false,     // show full list
+            paging: false,
             searching: true,
             ordering: true,
             responsive: true
