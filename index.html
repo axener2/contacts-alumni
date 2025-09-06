@@ -1,97 +1,132 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sutams Alumni Directory</title>
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" />
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
   <style>
-    body{
-      font-family: Arial, sans-serif; margin:0; padding:0;
-      background: linear-gradient(135deg,#e0f2f1,#bbdefb);
-      min-height:100vh; display:flex; align-items:flex-start; justify-content:center;
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f4f6f8;
     }
-    .container{width:100%; max-width:1000px; padding:20px;}
-    .headerBar{
-      display:flex; align-items:center; justify-content:space-between;
-      gap:16px; margin:10px 0 12px;
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 20px;
+      position: relative;
     }
-    .pageTitle{ margin:0; font-size:28px; font-weight:700; color:#111827; }
-    .userBox{ display:flex; align-items:center; gap:8px; }
-    .pill{background:#f3f4f6; padding:6px 12px; border-radius:20px;}
-    .btn{background:#2563eb; color:#fff; padding:10px 14px; border:none; border-radius:6px; cursor:pointer; font-weight:600;}
-    .btn:hover{background:#1d4ed8;}
-    .btn.danger{background:#dc2626;} .btn.danger:hover{background:#b91c1c;}
-
-    .card{
-      background:#fff; border-radius:10px; padding:24px; margin:10px auto; max-width:480px;
-      box-shadow:0 6px 12px rgba(0,0,0,.15);
+    .pageTitle {
+      text-align: center;
+      margin: 20px 0 10px;
+      font-size: 32px;
+      font-weight: 700;
+      color: #111827;
     }
-    .tabs{display:flex; gap:8px; margin-bottom:16px;}
-    .tabs button{flex:1; padding:10px; border:none; border-radius:6px; cursor:pointer; background:#e5e7eb; font-weight:600;}
-    .tabs .active{background:#2563eb; color:#fff;}
-    input{width:100%; padding:12px; margin:10px 0; border-radius:6px; border:1px solid #ccc; font-size:14px;}
-    .muted{font-size:13px; color:#6b7280; margin-top:6px;}
-    .error{color:#b91c1c; font-size:13px; margin-top:6px;}
-    .success{color:#065f46; background:#d1fae5; padding:8px 10px; border-radius:6px; font-size:13px; margin-top:8px;}
-    a.link{color:#2563eb; text-decoration:none; font-size:13px;} a.link:hover{text-decoration:underline;}
-    .hide{display:none;}
-    table{width:100%; margin-top:16px;}
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      margin: 30px auto;
+      max-width: 420px;
+    }
+    .card h2 { margin-top: 0; }
+    input[type="email"], input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    input[type="email"] { autocomplete: username; }
+    input[type="password"] { autocomplete: new-password; }
+    .btn {
+      background: #2563eb;
+      color: #fff;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn:hover { background: #1d4ed8; }
+    .btn.danger { background: #dc2626; }
+    .btn.danger:hover { background: #b91c1c; }
+    .pill {
+      background: #e9ecef;
+      padding: 5px 10px;
+      border-radius: 20px;
+      margin-right: 10px;
+    }
+    .userBox {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hide { display: none; }
+    table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+    th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
+    .tabs { display: flex; margin-bottom: 15px; }
+    .tabs button {
+      flex: 1; padding: 10px; cursor: pointer;
+      border: 1px solid #ccc; background: #f9fafb;
+    }
+    .tabs button.active { background: #2563eb; color: white; }
+    .message { text-align: center; color: green; margin-top: 10px; }
+    .error { text-align: center; color: red; margin-top: 10px; }
   </style>
 </head>
 <body>
   <div class="container">
 
-    <!-- Header -->
-    <div class="headerBar">
-      <h1 class="pageTitle">Sutams Alumni Directory</h1>
-      <div id="userBox" class="userBox hide">
-        <span id="who" class="pill"></span>
-        <button id="logoutBtn" class="btn danger">Log out</button>
-      </div>
+    <!-- Centered Heading -->
+    <h1 class="pageTitle">Sutams Alumni Directory</h1>
+
+    <!-- User chip & logout -->
+    <div id="userBox" class="userBox hide">
+      <span id="who" class="pill"></span>
+      <button id="logoutBtn" class="btn danger">Log out</button>
     </div>
 
-    <!-- Auth card (autocomplete off to avoid saved passwords) -->
-    <section id="authCard" class="card" autocomplete="off">
+    <!-- Login box -->
+    <section id="loginCard" class="card login">
       <div class="tabs">
         <button id="tabSignIn" class="active">Sign in</button>
         <button id="tabSignUp">Create account</button>
       </div>
-
-      <!-- Sign in -->
-      <div id="signInForm">
-        <input type="email" id="inEmail" placeholder="Email" autocomplete="email" />
-        <!-- random name + new-password block autofill -->
-        <input type="password" id="inPassword" placeholder="Password"
-               autocomplete="new-password" name="pw_signin_x7f" />
-        <button id="signInBtn" class="btn">Sign in</button>
-        <p class="muted">Only allow-listed alumni can access.</p>
-        <a href="#" id="forgotPwd" class="link">Forgot password?</a>
-        <p id="inMsg" class="error"></p>
+      <div id="signinForm">
+        <input type="email" id="email" placeholder="Email" autocomplete="username">
+        <input type="password" id="password" placeholder="Password" autocomplete="new-password">
+        <button id="loginBtn" class="btn">Sign in</button>
+        <p style="font-size:12px;color:#555;">Only allow-listed alumni can access.</p>
+        <a href="#" id="resetLink" style="font-size:12px;">Forgot password?</a>
       </div>
-
-      <!-- Sign up -->
-      <div id="signUpForm" class="hide">
-        <input type="text" id="upName" placeholder="Full name" autocomplete="name" />
-        <input type="email" id="upEmail" placeholder="Email" autocomplete="email" />
-        <input type="password" id="upPassword" placeholder="Password (min 6 chars)"
-               autocomplete="new-password" name="pw_signup_k3q" />
-        <button id="signUpBtn" class="btn">Create account</button>
-        <p class="muted">Your email must already be on the allow-list; otherwise sign-up is blocked.</p>
-        <p id="upMsg" class="error"></p>
+      <div id="signupForm" class="hide">
+        <input type="email" id="signupEmail" placeholder="Email" autocomplete="username">
+        <input type="password" id="signupPass" placeholder="Password" autocomplete="new-password">
+        <button id="signupBtn" class="btn">Create account</button>
+        <p style="font-size:12px;color:#555;">Only allow-listed alumni can register.</p>
       </div>
+      <p id="msgBox" class="message hide"></p>
+      <p id="errBox" class="error hide"></p>
     </section>
 
     <!-- Protected directory -->
     <section id="app" class="hide">
+      <label for="contacts_filter">Universal Search:</label>
       <table id="contacts" class="display"></table>
     </section>
   </div>
 
-  <!-- Firebase + libs -->
+  <!-- Firebase + DataTables + PapaParse -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -100,234 +135,165 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
-    /* ===== Firebase config (your project) ===== */
     const firebaseConfig = {
       apiKey: "AIzaSyAwj6GtC65Q8-xCa3BCLwxGJ8vUArOAHUY",
       authDomain: "sutams-alumni.firebaseapp.com",
       projectId: "sutams-alumni",
-      storageBucket: "sutams-alumni.appspot.com",
+      storageBucket: "sutams-alumni.firebasestorage.app",
       messagingSenderId: "817072662829",
       appId: "1:817072662829:web:0ecf3be2338326fb37cba4",
       measurementId: "G-6T86CT10TP"
     };
+
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
-    const db   = firebase.firestore();
+    const db = firebase.firestore();
 
-    /* ===== DOM ===== */
-    const authCard   = document.getElementById('authCard');
+    const loginCard = document.getElementById('loginCard');
     const appSection = document.getElementById('app');
-    const userBox    = document.getElementById('userBox');
-    const who        = document.getElementById('who');
-    const logoutBtn  = document.getElementById('logoutBtn');
+    const loginBtn = document.getElementById('loginBtn');
+    const signupBtn = document.getElementById('signupBtn');
+    const emailInput = document.getElementById('email');
+    const passInput = document.getElementById('password');
+    const signupEmail = document.getElementById('signupEmail');
+    const signupPass = document.getElementById('signupPass');
+    const who = document.getElementById('who');
+    const userBox = document.getElementById('userBox');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const msgBox = document.getElementById('msgBox');
+    const errBox = document.getElementById('errBox');
+    const tabSignIn = document.getElementById('tabSignIn');
+    const tabSignUp = document.getElementById('tabSignUp');
+    const signinForm = document.getElementById('signinForm');
+    const signupForm = document.getElementById('signupForm');
+    const resetLink = document.getElementById('resetLink');
 
-    const tabSignIn  = document.getElementById('tabSignIn');
-    const tabSignUp  = document.getElementById('tabSignUp');
-    const signInForm = document.getElementById('signInForm');
-    const signUpForm = document.getElementById('signUpForm');
-
-    const inEmail = document.getElementById('inEmail');
-    const inPassword = document.getElementById('inPassword');
-    const signInBtn = document.getElementById('signInBtn');
-    const inMsg = document.getElementById('inMsg');
-    const forgotPwd = document.getElementById('forgotPwd');
-
-    const upName = document.getElementById('upName');
-    const upEmail = document.getElementById('upEmail');
-    const upPassword = document.getElementById('upPassword');
-    const signUpBtn = document.getElementById('signUpBtn');
-    const upMsg = document.getElementById('upMsg');
-
-    /* ===== helpers to keep passwords empty ===== */
-    function clearPasswords() {
-      inPassword.value = '';
-      upPassword.value = '';
-      // also mark inputs as not-autofilled (helps some browsers)
-      inPassword.setAttribute('autocomplete','new-password');
-      upPassword.setAttribute('autocomplete','new-password');
+    function showMsg(msg) {
+      msgBox.textContent = msg;
+      msgBox.classList.remove('hide');
+      errBox.classList.add('hide');
     }
-    // Clear immediately on load
-    clearPasswords();
-
-    function showSignInTab(messageHTML='') {
-      tabSignIn.classList.add('active'); tabSignUp.classList.remove('active');
-      signInForm.classList.remove('hide'); signUpForm.classList.add('hide');
-      inMsg.className = messageHTML ? 'success' : 'error';
-      inMsg.innerHTML = messageHTML;
-      clearPasswords();
-      if (messageHTML) setTimeout(()=>{ inMsg.textContent=''; inMsg.className='error'; }, 5000);
+    function showErr(msg) {
+      errBox.textContent = msg;
+      errBox.classList.remove('hide');
+      msgBox.classList.add('hide');
     }
 
-    tabSignIn.onclick = () => showSignInTab();
-    tabSignUp.onclick = () => {
-      tabSignUp.classList.add('active'); tabSignIn.classList.remove('active');
-      signUpForm.classList.remove('hide'); signInForm.classList.add('hide');
-      upMsg.textContent = '';
-      clearPasswords();
+    tabSignIn.onclick = () => {
+      tabSignIn.classList.add("active");
+      tabSignUp.classList.remove("active");
+      signinForm.classList.remove("hide");
+      signupForm.classList.add("hide");
+      msgBox.classList.add("hide");
+      errBox.classList.add("hide");
     };
 
-    /* ===== Session (14 days only) ===== */
-    const SESSION_LIMIT_MS = 14*24*60*60*1000;
-    const sessKey = 'sessStart';
-    const now = () => Date.now();
-    const toLower = s => (s||"").trim().toLowerCase();
+    tabSignUp.onclick = () => {
+      tabSignUp.classList.add("active");
+      tabSignIn.classList.remove("active");
+      signupForm.classList.remove("hide");
+      signinForm.classList.add("hide");
+      msgBox.classList.add("hide");
+      errBox.classList.add("hide");
+    };
 
-    /* ===== Allow-list check (allowed === true) ===== */
-    async function isAllowedEmail(emailLower) {
+    signupBtn.addEventListener('click', async () => {
       try {
-        const snap = await db.collection('allowlist').doc(emailLower).get();
-        if (!snap.exists) return false;
-        const data = snap.data() || {};
-        return data.allowed === true;
-      } catch { return false; }
-    }
-
-    /* ===== Sign up (no auto-login) ===== */
-    signUpBtn.addEventListener('click', async () => {
-      upMsg.textContent = '';
-      const name  = upName.value.trim();
-      const email = toLower(upEmail.value);
-      const pwd   = upPassword.value;
-
-      if (!name || !email || !pwd) { upMsg.textContent='Please fill name, email and password.'; return; }
-      if (!(await isAllowedEmail(email))) { upMsg.textContent = 'Not authorised. Contact administrator.'; clearPasswords(); return; }
-
-      try {
-        const cred = await auth.createUserWithEmailAndPassword(email, pwd);
-        await cred.user.updateProfile({ displayName: name });
-        await auth.signOut();
-        inEmail.value = email;        // keep only email for convenience
-        showSignInTab('Sign-up successful. Please sign in.');
-      } catch (e) {
-        if (e.code === 'auth/email-already-in-use') {
-          inEmail.value = email;
-          showSignInTab('Account already exists. Please sign in or use “Forgot password”.');
-        } else {
-          upMsg.textContent = e.message;
+        const userCred = await auth.createUserWithEmailAndPassword(signupEmail.value, signupPass.value);
+        const doc = await db.collection('allowlist').doc(signupEmail.value.toLowerCase()).get();
+        if (!doc.exists || !doc.data().allowed) {
+          showErr("Not authorised. Contact administrator.");
+          await auth.currentUser.delete();
+          return;
         }
-        clearPasswords();
+        showMsg("Sign up successful. Please sign in.");
+      } catch (err) {
+        showErr(err.message);
       }
     });
 
-    /* ===== Sign in ===== */
-    signInBtn.addEventListener('click', async () => {
-      inMsg.textContent = '';
-      const email = toLower(inEmail.value);
-      const pwd   = inPassword.value;
-      if (!email || !pwd) { inMsg.textContent = 'Enter email and password.'; return; }
+    loginBtn.addEventListener('click', async () => {
       try {
-        await auth.signInWithEmailAndPassword(email, pwd);
-      } catch (e) {
-        inMsg.textContent = e.message;
-        clearPasswords();
+        await auth.signInWithEmailAndPassword(emailInput.value, passInput.value);
+      } catch (err) {
+        showErr(err.message);
       }
     });
 
-    /* ===== Reset password ===== */
-    forgotPwd.addEventListener('click', async (e) => {
+    resetLink.addEventListener('click', async (e) => {
       e.preventDefault();
-      const email = toLower(inEmail.value);
-      if (!email) { alert('Enter your email above first.'); return; }
+      const email = prompt("Enter your email to reset password:");
+      if (!email) return;
       try {
         await auth.sendPasswordResetEmail(email);
-        alert('Password reset email sent to ' + email);
-      } catch (e) { alert('Error: ' + e.message); }
-    });
-
-    /* ===== Auth state & post-login ===== */
-    auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        const emailLower = toLower(user.email);
-        if (!(await isAllowedEmail(emailLower))) {
-          alert('This email is not authorised for the directory.');
-          await auth.signOut(); return;
-        }
-        if (!localStorage.getItem(sessKey)) localStorage.setItem(sessKey, String(now()));
-        setInterval(() => {
-          const start = parseInt(localStorage.getItem(sessKey) || '0', 10);
-          if (now() - start > SESSION_LIMIT_MS) auth.signOut();
-        }, 60*1000);
-
-        who.textContent = user.displayName ? `${user.displayName} (${emailLower})` : emailLower;
-        authCard.classList.add('hide');
-        appSection.classList.remove('hide');
-        userBox.classList.remove('hide');
-        clearPasswords();
-        loadContacts();
-      } else {
-        authCard.classList.remove('hide');
-        appSection.classList.add('hide');
-        userBox.classList.add('hide');
-        clearPasswords();
+        showMsg("Password reset link sent to " + email);
+      } catch (err) {
+        showErr(err.message);
       }
     });
 
-    logoutBtn.addEventListener('click', () => {
-      auth.signOut();
-      clearPasswords();
+    auth.onAuthStateChanged(async user => {
+      if (user) {
+        const doc = await db.collection('allowlist').doc(user.email.toLowerCase()).get();
+        if (!doc.exists || !doc.data().allowed) {
+          alert("This email isn’t authorised for the directory.");
+          await auth.signOut();
+          return;
+        }
+        who.textContent = user.email;
+        loginCard.classList.add('hide');
+        appSection.classList.remove('hide');
+        userBox.classList.remove('hide');
+        loadContacts();
+      } else {
+        loginCard.classList.remove('hide');
+        appSection.classList.add('hide');
+        userBox.classList.add('hide');
+      }
     });
 
-    /* ===== Load contacts.csv (cache-busting) ===== */
+    logoutBtn.addEventListener('click', () => auth.signOut());
+
     function loadContacts() {
-      const CSV_URL = 'contacts.csv?v=' + Date.now();
+      const CSV_URL = "contacts.csv?v=" + Date.now();
       Papa.parse(CSV_URL, {
         download: true,
         header: true,
         skipEmptyLines: true,
         complete: function(results) {
           const rows = results.data.map((row, i) => {
-            const name  = row['Name'] || '';
-            const batch = String(row['MBBS Batch'] || '').replace(/\.0+$/, '');
-            const desig = row['Designation'] || '';
-            const place = row['Place of Work'] || row['Place'] || '';
-            const phoneRaw = row['Contact no'] || row['Contact'] || '';
-            const digits = (phoneRaw + '').replace(/[^0-9]/g, '');
-            const tel = digits ? (digits.length === 10 ? '+91' + digits
-                        : digits.startsWith('91') ? '+' + digits : '+' + digits) : '';
-            const wa  = digits ? (digits.length === 10 ? '91' + digits
-                        : digits.startsWith('91') ? digits : digits) : '';
+            const name  = row["Name"] || "";
+            const batch = String(row["MBBS Batch"] || "").replace(/\.0+$/,"");
+            const desig = row["Designation"] || "";
+            const place = row["Place of Work"] || "";
+            const phoneRaw = row["Contact no"] || row["Contact"] || "";
+            const digits = (phoneRaw+"").replace(/[^0-9]/g,'');
+            const tel = digits ? (digits.length===10 ? "+91"+digits : digits.startsWith("91") ? "+"+digits : "+"+digits) : "";
+            const wa  = digits ? (digits.length===10 ? "91"+digits : digits.startsWith("91") ? digits : digits) : "";
             return [
               i + 1,
               name,
               batch,
               desig,
               place,
-              tel ? `<a href="tel:${tel}">${tel}</a>` : '',
-              wa  ? `<a href="https://wa.me/${wa}" target="_blank">Chat</a>` : ''
+              tel ? `<a href="tel:${tel}">${tel}</a>` : "",
+              wa  ? `<a href="https://wa.me/${wa}" target="_blank">Chat</a>` : ""
             ];
           });
-
-          // Sort by Batch asc, then Name A–Z
-          rows.sort((a,b)=>{
-            const Ab = parseInt(a[2]) || 0, Bb = parseInt(b[2]) || 0;
-            if (Ab !== Bb) return Ab - Bb;
-            return (a[1] || '').localeCompare(b[1] || '');
-          });
-
-          $('#contacts').DataTable({
+          new DataTable("#contacts", {
             data: rows,
-            destroy: true,
             columns: [
-              { title: 'S.No' },
-              { title: 'Name' },
-              { title: 'MBBS Batch' },
-              { title: 'Designation' },
-              { title: 'Place of Work' },
-              { title: 'Contact' },
-              { title: 'WhatsApp' }
+              { title: "S.No" },
+              { title: "Name" },
+              { title: "MBBS Batch" },
+              { title: "Designation" },
+              { title: "Place of Work" },
+              { title: "Contact" },
+              { title: "WhatsApp" }
             ],
-            paging: false,
-            searching: true,
-            ordering: true,
-            responsive: true,
-            language: {
-              search: 'Universal Search:',
-              searchPlaceholder: 'Search name, MBBS batch, designation, place of work, phone…'
-            }
+            pageLength: 1000,
+            responsive: true
           });
-        },
-        error: function(err) {
-          alert('Failed to load contacts: ' + (err?.message || err));
         }
       });
     }
