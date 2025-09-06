@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- discourage caching of HTML itself -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -27,7 +28,7 @@
 <body>
   <div class="container">
 
-    <!-- Centered Heading -->
+    <!-- Heading -->
     <h1 class="pageTitle">Sutams Alumni Directory</h1>
 
     <!-- User chip & logout -->
@@ -55,31 +56,21 @@
   <!-- Firebase (compat) + DataTables + PapaParse -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-  <!-- Uncomment if you enable allow-list via Firestore:
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
-    /* ====== Firebase config (from Console) ====== */
+    /* ====== Firebase config (replace with yours) ====== */
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
-      authDomain: "sutams-alumni.firebaseapp.com",
-      projectId: "sutams-alumni",
-      storageBucket: "sutams-alumni.appspot.com",
-      messagingSenderId: "817072662829",
-      appId: "YOUR_APP_ID",
-      measurementId: "G-6T86CT10TP"
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      appId: "YOUR_APP_ID"
     };
-
-    // Initialize Firebase (compat)
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
-    const storage = firebase.storage();
-    // const db = firebase.firestore(); // allow-list (optional)
+    // If you later add Firestore allow-list: const db = firebase.firestore();
 
     /* ====== DOM refs ====== */
     const loginCard = document.getElementById('loginCard');
@@ -90,21 +81,20 @@
     const userBox = document.getElementById('userBox');
     const logoutBtn = document.getElementById('logoutBtn');
 
-    /* ====== Session: 14 days only ====== */
+    /* ====== Session: 14 days only (no idle timeout) ====== */
     const SESSION_LIMIT_MS = 14*24*60*60*1000;
     const sessKey = 'sessStart';
     const now = () => Date.now();
 
-    /* ====== Email-link login with NO confirm prompt ======
-       Trick: include the email in the continue URL (?e=...)
-       so when the link opens and localStorage is missing,
-       we can read it from the URL instead of prompting. */
+    /* ====== Email-link login (no confirm prompt) ======
+       We stash the email in localStorage and also add ?e=<email> to the link,
+       so when the link opens in a new tab/app we can read it and avoid prompting. */
     loginBtn.addEventListener('click', async () => {
       const email = emailInput.value.trim().toLowerCase();
       if (!email) return alert("Enter your email");
 
       const url = new URL(window.location.href);
-      url.searchParams.set('e', email); // include email in continueUrl
+      url.searchParams.set('e', email); // include email in continue URL
 
       const actionCodeSettings = {
         url: url.toString(),
@@ -119,18 +109,13 @@
       }
     });
 
-    // Complete sign-in if opened via email link
     if (auth.isSignInWithEmailLink(window.location.href)) {
       let email = window.localStorage.getItem('emailForSignIn');
       if (!email) {
-        // Fallback: read from URL param so we don't prompt
         const params = new URL(window.location.href).searchParams;
         email = (params.get('e') || "").trim().toLowerCase();
       }
-      if (!email) {
-        // absolute fallback if the param was removed
-        email = window.prompt("Confirm your email");
-      }
+      if (!email) email = window.prompt("Confirm your email"); // absolute fallback
       auth.signInWithEmailLink(email, window.location.href)
         .then(() => window.localStorage.removeItem('emailForSignIn'))
         .catch(err => alert("Error: " + err.message));
@@ -147,7 +132,6 @@
 
     logoutBtn.addEventListener('click', () => auth.signOut());
 
-    /* ====== Post-login (optional allow-list, then load from Storage) ====== */
     async function afterLogin(user){
       // 14-day session timer
       if(!window.localStorage.getItem(sessKey)) {
@@ -158,89 +142,78 @@
         if (now() - start > SESSION_LIMIT_MS) auth.signOut();
       }, 60*1000);
 
-      // Optional Firestore allow-list:
-      /*
-      const doc = await db.collection('allowlist').doc(user.email.toLowerCase()).get();
-      if (!doc.exists) {
-        alert("This email isn’t authorised for the directory.");
-        await auth.signOut();
-        return;
-      }
-      */
+      // Optional: Firestore allow-list check could go here
 
       who.textContent = user.email;
       loginCard.classList.add('hide');
       appSection.classList.remove('hide');
       userBox.classList.remove('hide');
 
-      await loadContactsFromStorage(); // secure CSV
+      loadContactsFromGitHub(); // read from repo with cache-busting
     }
 
-    /* ====== Load contacts from Firebase Storage (secure) ======
-       Upload your file to:  gs://sutams-alumni.appspot.com/protected/contacts.csv
-       See rules below. */
-    async function loadContactsFromStorage() {
-      try {
-        const ref = storage.ref('protected/contacts.csv');
-        const url = await ref.getDownloadURL();
-        const txt = await fetch(url, {cache:'no-store'}).then(r => r.text());
+    /* ====== Load contacts.csv from GitHub Pages (cache-busting) ======
+       We append a version key that changes on each load so the browser
+       never serves a stale CSV. */
+    function loadContactsFromGitHub() {
+      const CSV_URL = "contacts.csv?v=" + Date.now(); // strong cache-buster
+      Papa.parse(CSV_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          const rows = results.data.map((row, i) => {
+            const name  = row["Name"] || "";
+            const batch = String(row["MBBS Batch"] || "").replace(/\.0+$/,"");
+            const desig = row["Designation"] || "";
+            const place = row["Place of Work"] || row["Place"] || "";
+            const phoneRaw = row["Contact no"] || row["Contact"] || "";
+            const digits = (phoneRaw+"").replace(/[^0-9]/g,'');
+            const tel = digits ? (digits.length===10 ? "+91"+digits
+                        : digits.startsWith("91") ? "+"+digits : "+"+digits) : "";
+            const wa  = digits ? (digits.length===10 ? "91"+digits
+                        : digits.startsWith("91") ? digits : digits) : "";
+            return [
+              i + 1,
+              name,
+              batch,
+              desig,
+              place,
+              tel ? `<a href="tel:${tel}">${tel}</a>` : "",
+              wa  ? `<a href="https://wa.me/${wa}" target="_blank">Chat</a>` : ""
+            ];
+          });
 
-        Papa.parse(txt, {
-          header: true,
-          skipEmptyLines: true,
-          complete: function(results) {
-            const rows = results.data.map((row, i) => {
-              const name  = row["Name"] || "";
-              const batch = String(row["MBBS Batch"] || "").replace(/\.0+$/,"");
-              const desig = row["Designation"] || "";
-              const place = row["Place of Work"] || row["Place"] || "";
-              const phoneRaw = row["Contact no"] || row["Contact"] || "";
-              const digits = (phoneRaw+"").replace(/[^0-9]/g,'');
-              const tel = digits ? (digits.length===10 ? "+91"+digits
-                          : digits.startsWith("91") ? "+"+digits : "+"+digits) : "";
-              const wa  = digits ? (digits.length===10 ? "91"+digits
-                          : digits.startsWith("91") ? digits : digits) : "";
-              return [
-                i + 1,
-                name,
-                batch,
-                desig,
-                place,
-                tel ? `<a href="tel:${tel}">${tel}</a>` : "",
-                wa  ? `<a href="https://wa.me/${wa}" target="_blank">Chat</a>` : ""
-              ];
-            });
+          // Sort by Batch asc, then Name A–Z
+          rows.sort((a,b)=>{
+            const Ab = parseInt(a[2])||0, Bb = parseInt(b[2])||0;
+            if(Ab!==Bb) return Ab-Bb;
+            return (a[1]||"").localeCompare(b[1]||"");
+          });
 
-            // Sort by Batch asc, then Name A–Z
-            rows.sort((a,b)=>{
-              const Ab = parseInt(a[2])||0, Bb = parseInt(b[2])||0;
-              if(Ab!==Bb) return Ab-Bb;
-              return (a[1]||"").localeCompare(b[1]||"");
-            });
-
-            // Show ALL rows (no pagination)
-            $('#contacts').DataTable({
-              data: rows,
-              destroy: true,
-              columns: [
-                { title: "S.No" },
-                { title: "Name" },
-                { title: "MBBS Batch" },
-                { title: "Designation" },
-                { title: "Place of Work" },
-                { title: "Contact" },
-                { title: "WhatsApp" }
-              ],
-              paging: false,       // ✅ show full list
-              searching: true,
-              ordering: true,
-              responsive: true
-            });
-          }
-        });
-      } catch (e) {
-        alert("Failed to load contacts: " + e.message);
-      }
+          // Show ALL rows; still searchable & sortable
+          $('#contacts').DataTable({
+            data: rows,
+            destroy: true,
+            columns: [
+              { title: "S.No" },
+              { title: "Name" },
+              { title: "MBBS Batch" },
+              { title: "Designation" },
+              { title: "Place of Work" },
+              { title: "Contact" },
+              { title: "WhatsApp" }
+            ],
+            paging: false,     // show full list
+            searching: true,
+            ordering: true,
+            responsive: true
+          });
+        },
+        error: function(err) {
+          alert("Failed to load contacts: " + (err?.message || err));
+        }
+      });
     }
   </script>
 </body>
