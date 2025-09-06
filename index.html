@@ -14,9 +14,8 @@
     .pageTitle {text-align: center; margin: 40px 0 20px; font-size: 26px; font-weight: 700;}
     .card {background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 0 auto; max-width: 420px;}
     .card h2 {margin-top: 0;}
-    input[type="email"] {width: 100%; padding: 10px; margin: 10px 0; border-radius: 4px; border: 1px solid #ccc;}
-    .btn {background: #28a745; color: #fff; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer;}
-    .btn:hover {background: #218838;}
+    .btn {background: #4285F4; color: #fff; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer;}
+    .btn:hover {opacity: 0.95;}
     .pill {background: #e9ecef; padding: 5px 10px; border-radius: 20px; margin-right: 10px;}
     .topRight {position: absolute; top: 20px; right: 20px;}
     .hide {display: none;}
@@ -32,17 +31,15 @@
     <!-- User info & logout -->
     <div id="userBox" class="hide topRight">
       <span id="who" class="pill"></span>
-      <button id="logoutBtn" class="btn">Log out</button>
+      <button id="logoutBtn" class="btn" style="background:#dc3545">Log out</button>
     </div>
 
     <!-- Login card -->
     <section id="loginCard" class="card login">
       <h2>Sign in</h2>
-      <p>Enter your email to receive a <b>login link</b>. Only allow-listed alumni can access.</p>
-      <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
-      <label><input type="checkbox" id="rememberMe" checked> Remember this device (14 days max)</label><br><br>
-      <button id="loginBtn" class="btn">Send login link</button>
-      <p style="font-size:12px;color:#555;margin-top:10px;">Tip: keep this tab open; click the link in your email. You’ll return here and be signed in.</p>
+      <p>Use your Google account. Only allow-listed alumni can access.</p>
+      <button id="googleBtn" class="btn">Continue with Google</button>
+      <p style="font-size:12px;color:#555;margin-top:10px;">Pick a Google account to continue. No emails or OTPs.</p>
     </section>
 
     <!-- Protected directory -->
@@ -60,12 +57,12 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
-    /* ====== Firebase config ====== */
+    /* ====== Firebase config (yours) ====== */
     const firebaseConfig = {
       apiKey: "AIzaSyAwj6GtC65Q8-xCa3BCLwxGJ8vUArOAHUY",
       authDomain: "sutams-alumni.firebaseapp.com",
       projectId: "sutams-alumni",
-      storageBucket: "sutams-alumni.firebasestorage.app",
+      storageBucket: "sutams-alumni.appspot.com",
       messagingSenderId: "817072662829",
       appId: "1:817072662829:web:0ecf3be2338326fb37cba4",
       measurementId: "G-6T86CT10TP"
@@ -76,47 +73,26 @@
 
     /* DOM */
     const loginCard = document.getElementById('loginCard');
-    const appSection = document.getElementById('app');
-    const loginBtn = document.getElementById('loginBtn');
-    const emailInput = document.getElementById('email');
-    const who = document.getElementById('who');
-    const userBox = document.getElementById('userBox');
-    const logoutBtn = document.getElementById('logoutBtn');
+    const appSection   = document.getElementById('app');
+    const googleBtn    = document.getElementById('googleBtn');
+    const who          = document.getElementById('who');
+    const userBox      = document.getElementById('userBox');
+    const logoutBtn    = document.getElementById('logoutBtn');
 
-    /* Session */
+    /* Session (14 days only) */
     const SESSION_LIMIT_MS = 14*24*60*60*1000;
     const sessKey = 'sessStart';
     const now = () => Date.now();
 
-    /* Email link login */
-    loginBtn.addEventListener('click', async () => {
-      const email = emailInput.value.trim().toLowerCase();
-      if (!email) return alert("Enter your email");
-
-      const url = new URL(window.location.href);
-      url.searchParams.set('e', email);
-
-      const actionCodeSettings = { url: url.toString(), handleCodeInApp: true };
+    /* Google sign-in */
+    const provider = new firebase.auth.GoogleAuthProvider();
+    googleBtn.addEventListener('click', async () => {
       try {
-        await auth.sendSignInLinkToEmail(email, actionCodeSettings);
-        window.localStorage.setItem('emailForSignIn', email);
-        alert("Login link sent to " + email);
+        await auth.signInWithPopup(provider);
       } catch (err) {
-        alert("Error: " + err.message);
+        alert("Sign-in failed: " + err.message);
       }
     });
-
-    if (auth.isSignInWithEmailLink(window.location.href)) {
-      let email = window.localStorage.getItem('emailForSignIn');
-      if (!email) {
-        const params = new URL(window.location.href).searchParams;
-        email = (params.get('e') || "").trim().toLowerCase();
-      }
-      if (!email) email = window.prompt("Confirm your email");
-      auth.signInWithEmailLink(email, window.location.href)
-        .then(() => window.localStorage.removeItem('emailForSignIn'))
-        .catch(err => alert("Error: " + err.message));
-    }
 
     auth.onAuthStateChanged(user => {
       if (user) afterLogin(user);
@@ -129,8 +105,8 @@
 
     logoutBtn.addEventListener('click', () => auth.signOut());
 
-    /* Post login with allow-list */
     async function afterLogin(user){
+      // 14-day session timer
       if(!window.localStorage.getItem(sessKey)) {
         window.localStorage.setItem(sessKey, String(now()));
       }
@@ -139,15 +115,16 @@
         if (now() - start > SESSION_LIMIT_MS) auth.signOut();
       }, 60*1000);
 
-      // === Allow-list check ===
-      const doc = await db.collection('allowlist').doc(user.email.toLowerCase()).get();
+      // === Firestore allow-list check ===
+      const email = (user.email || "").toLowerCase();
+      const doc = await db.collection('allowlist').doc(email).get();
       if (!doc.exists) {
         alert("This email isn’t authorised for the directory.");
         await auth.signOut();
         return;
       }
 
-      who.textContent = user.email;
+      who.textContent = email;
       loginCard.classList.add('hide');
       appSection.classList.remove('hide');
       userBox.classList.remove('hide');
@@ -155,9 +132,9 @@
       loadContacts();
     }
 
-    /* Load CSV with cache-busting */
+    /* Load CSV from GitHub Pages (cache-busting) */
     function loadContacts() {
-      const CSV_URL = "contacts.csv?v=" + Date.now();
+      const CSV_URL = "contacts.csv?v=" + Date.now(); // strong cache-buster
       Papa.parse(CSV_URL, {
         download: true,
         header: true,
@@ -185,12 +162,14 @@
             ];
           });
 
+          // Sort by Batch asc, then Name A–Z
           rows.sort((a,b)=>{
             const Ab = parseInt(a[2])||0, Bb = parseInt(b[2])||0;
             if(Ab!==Bb) return Ab-Bb;
             return (a[1]||"").localeCompare(b[1]||"");
           });
 
+          // Show ALL rows; still searchable & sortable
           $('#contacts').DataTable({
             data: rows,
             destroy: true,
