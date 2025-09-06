@@ -12,43 +12,50 @@
     body{
       font-family: Arial, sans-serif; margin:0; padding:0;
       background: linear-gradient(135deg,#e0f2f1,#bbdefb);
-      min-height:100vh; display:flex; align-items:center; justify-content:center;
+      min-height:100vh; display:flex; align-items:flex-start; justify-content:center;
     }
-    .container{width:100%; max-width:1000px; padding:20px; position:relative;}
-    .pageTitle{ text-align:center; margin:20px 0; font-size:28px; font-weight:700; color:#111827;}
+    .container{width:100%; max-width:1000px; padding:20px;}
+    .headerBar{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:16px; margin:10px 0 12px;
+    }
+    .pageTitle{ margin:0; font-size:28px; font-weight:700; color:#111827; }
+    .userBox{ display:flex; align-items:center; gap:8px; }
+    .pill{background:#f3f4f6; padding:6px 12px; border-radius:20px;}
+    .btn{background:#2563eb; color:#fff; padding:10px 14px; border:none; border-radius:6px; cursor:pointer; font-weight:600;}
+    .btn:hover{background:#1d4ed8;}
+    .btn.danger{background:#dc2626;} .btn.danger:hover{background:#b91c1c;}
+
     .card{
-      background:#fff; border-radius:10px; padding:24px; margin:0 auto; max-width:480px;
+      background:#fff; border-radius:10px; padding:24px; margin:10px auto; max-width:480px;
       box-shadow:0 6px 12px rgba(0,0,0,.15);
     }
-    .card h2{margin:0 0 6px; color:#111827;}
     .tabs{display:flex; gap:8px; margin-bottom:16px;}
     .tabs button{flex:1; padding:10px; border:none; border-radius:6px; cursor:pointer; background:#e5e7eb; font-weight:600;}
     .tabs .active{background:#2563eb; color:#fff;}
     input{width:100%; padding:12px; margin:10px 0; border-radius:6px; border:1px solid #ccc; font-size:14px;}
-    .btn{background:#2563eb; color:#fff; padding:12px 16px; border:none; border-radius:6px; cursor:pointer; font-size:15px; font-weight:600;}
-    .btn:hover{background:#1d4ed8;}
-    .btn.danger{background:#dc2626;} .btn.danger:hover{background:#b91c1c;}
-    .pill{background:#f3f4f6; padding:6px 12px; border-radius:20px; margin-right:10px;}
-    .topRight{position:absolute; top:20px; right:20px;}
     .muted{font-size:13px; color:#6b7280; margin-top:6px;}
     .error{color:#b91c1c; font-size:13px; margin-top:6px;}
+    .success{color:#065f46; background:#d1fae5; padding:8px 10px; border-radius:6px; font-size:13px; margin-top:8px;}
     a.link{color:#2563eb; text-decoration:none; font-size:13px;} a.link:hover{text-decoration:underline;}
     .hide{display:none;}
-    table{width:100%; margin-top:20px;}
+    table{width:100%; margin-top:16px;}
   </style>
 </head>
 <body>
   <div class="container">
-    <h1 class="pageTitle">Sutams Alumni Directory</h1>
 
-    <!-- User chip + logout -->
-    <div id="userBox" class="hide topRight">
-      <span id="who" class="pill"></span>
-      <button id="logoutBtn" class="btn danger">Log out</button>
+    <!-- Header -->
+    <div class="headerBar">
+      <h1 class="pageTitle">Sutams Alumni Directory</h1>
+      <div id="userBox" class="userBox hide">
+        <span id="who" class="pill"></span>
+        <button id="logoutBtn" class="btn danger">Log out</button>
+      </div>
     </div>
 
-    <!-- Auth card -->
-    <section id="authCard" class="card">
+    <!-- Auth card (autocomplete off to avoid saved passwords) -->
+    <section id="authCard" class="card" autocomplete="off">
       <div class="tabs">
         <button id="tabSignIn" class="active">Sign in</button>
         <button id="tabSignUp">Create account</button>
@@ -56,24 +63,25 @@
 
       <!-- Sign in -->
       <div id="signInForm">
-        <h2>Sign in</h2>
-        <input type="email" id="inEmail" placeholder="Email" />
-        <input type="password" id="inPassword" placeholder="Password" />
+        <input type="email" id="inEmail" placeholder="Email" autocomplete="email" />
+        <!-- random name + new-password block autofill -->
+        <input type="password" id="inPassword" placeholder="Password"
+               autocomplete="new-password" name="pw_signin_x7f" />
         <button id="signInBtn" class="btn">Sign in</button>
         <p class="muted">Only allow-listed alumni can access.</p>
         <a href="#" id="forgotPwd" class="link">Forgot password?</a>
-        <p id="inErr" class="error"></p>
+        <p id="inMsg" class="error"></p>
       </div>
 
       <!-- Sign up -->
       <div id="signUpForm" class="hide">
-        <h2>Create account</h2>
-        <input type="text" id="upName" placeholder="Full name" />
-        <input type="email" id="upEmail" placeholder="Email" />
-        <input type="password" id="upPassword" placeholder="Password (min 6 chars)" />
+        <input type="text" id="upName" placeholder="Full name" autocomplete="name" />
+        <input type="email" id="upEmail" placeholder="Email" autocomplete="email" />
+        <input type="password" id="upPassword" placeholder="Password (min 6 chars)"
+               autocomplete="new-password" name="pw_signup_k3q" />
         <button id="signUpBtn" class="btn">Create account</button>
         <p class="muted">Your email must already be on the allow-list; otherwise sign-up is blocked.</p>
-        <p id="upErr" class="error"></p>
+        <p id="upMsg" class="error"></p>
       </div>
     </section>
 
@@ -109,8 +117,8 @@
     /* ===== DOM ===== */
     const authCard   = document.getElementById('authCard');
     const appSection = document.getElementById('app');
-    const who        = document.getElementById('who');
     const userBox    = document.getElementById('userBox');
+    const who        = document.getElementById('who');
     const logoutBtn  = document.getElementById('logoutBtn');
 
     const tabSignIn  = document.getElementById('tabSignIn');
@@ -118,26 +126,45 @@
     const signInForm = document.getElementById('signInForm');
     const signUpForm = document.getElementById('signUpForm');
 
-    tabSignIn.onclick = () => {
-      tabSignIn.classList.add('active'); tabSignUp.classList.remove('active');
-      signInForm.classList.remove('hide'); signUpForm.classList.add('hide');
-    };
-    tabSignUp.onclick = () => {
-      tabSignUp.classList.add('active'); tabSignIn.classList.remove('active');
-      signUpForm.classList.remove('hide'); signInForm.classList.add('hide');
-    };
-
     const inEmail = document.getElementById('inEmail');
     const inPassword = document.getElementById('inPassword');
     const signInBtn = document.getElementById('signInBtn');
-    const inErr = document.getElementById('inErr');
+    const inMsg = document.getElementById('inMsg');
     const forgotPwd = document.getElementById('forgotPwd');
 
     const upName = document.getElementById('upName');
     const upEmail = document.getElementById('upEmail');
     const upPassword = document.getElementById('upPassword');
     const signUpBtn = document.getElementById('signUpBtn');
-    const upErr = document.getElementById('upErr');
+    const upMsg = document.getElementById('upMsg');
+
+    /* ===== helpers to keep passwords empty ===== */
+    function clearPasswords() {
+      inPassword.value = '';
+      upPassword.value = '';
+      // also mark inputs as not-autofilled (helps some browsers)
+      inPassword.setAttribute('autocomplete','new-password');
+      upPassword.setAttribute('autocomplete','new-password');
+    }
+    // Clear immediately on load
+    clearPasswords();
+
+    function showSignInTab(messageHTML='') {
+      tabSignIn.classList.add('active'); tabSignUp.classList.remove('active');
+      signInForm.classList.remove('hide'); signUpForm.classList.add('hide');
+      inMsg.className = messageHTML ? 'success' : 'error';
+      inMsg.innerHTML = messageHTML;
+      clearPasswords();
+      if (messageHTML) setTimeout(()=>{ inMsg.textContent=''; inMsg.className='error'; }, 5000);
+    }
+
+    tabSignIn.onclick = () => showSignInTab();
+    tabSignUp.onclick = () => {
+      tabSignUp.classList.add('active'); tabSignIn.classList.remove('active');
+      signUpForm.classList.remove('hide'); signInForm.classList.add('hide');
+      upMsg.textContent = '';
+      clearPasswords();
+    };
 
     /* ===== Session (14 days only) ===== */
     const SESSION_LIMIT_MS = 14*24*60*60*1000;
@@ -145,88 +172,76 @@
     const now = () => Date.now();
     const toLower = s => (s||"").trim().toLowerCase();
 
-    /* ===== Allow-list check (must be allowed === true) ===== */
+    /* ===== Allow-list check (allowed === true) ===== */
     async function isAllowedEmail(emailLower) {
       try {
         const snap = await db.collection('allowlist').doc(emailLower).get();
         if (!snap.exists) return false;
         const data = snap.data() || {};
-        return data.allowed === true;  // enforce allowed === true
-      } catch (e) {
-        console.warn('allowlist read failed', e);
-        return false; // fail-safe: block
-      }
+        return data.allowed === true;
+      } catch { return false; }
     }
 
-    /* ===== Sign up ===== */
+    /* ===== Sign up (no auto-login) ===== */
     signUpBtn.addEventListener('click', async () => {
-      upErr.textContent = '';
+      upMsg.textContent = '';
       const name  = upName.value.trim();
       const email = toLower(upEmail.value);
       const pwd   = upPassword.value;
 
-      if (!name || !email || !pwd) { upErr.textContent='Please fill name, email and password.'; return; }
-
-      // Must be on allowlist before creating account
-      if (!(await isAllowedEmail(email))) {
-        upErr.textContent = 'This email is not authorised to sign up.';
-        return;
-      }
+      if (!name || !email || !pwd) { upMsg.textContent='Please fill name, email and password.'; return; }
+      if (!(await isAllowedEmail(email))) { upMsg.textContent = 'Not authorised. Contact administrator.'; clearPasswords(); return; }
 
       try {
         const cred = await auth.createUserWithEmailAndPassword(email, pwd);
         await cred.user.updateProfile({ displayName: name });
-        // onAuthStateChanged will continue the flow
+        await auth.signOut();
+        inEmail.value = email;        // keep only email for convenience
+        showSignInTab('Sign-up successful. Please sign in.');
       } catch (e) {
         if (e.code === 'auth/email-already-in-use') {
-          upErr.innerHTML = 'This email already has an account. Please <b>Sign in</b> or use <b>Forgot password</b>.';
-          // optionally prefill the sign-in email
           inEmail.value = email;
-          tabSignIn.click();
+          showSignInTab('Account already exists. Please sign in or use “Forgot password”.');
         } else {
-          upErr.textContent = e.message;
+          upMsg.textContent = e.message;
         }
+        clearPasswords();
       }
     });
 
     /* ===== Sign in ===== */
     signInBtn.addEventListener('click', async () => {
-      inErr.textContent = '';
+      inMsg.textContent = '';
       const email = toLower(inEmail.value);
       const pwd   = inPassword.value;
-      if (!email || !pwd) { inErr.textContent = 'Enter email and password.'; return; }
-
+      if (!email || !pwd) { inMsg.textContent = 'Enter email and password.'; return; }
       try {
         await auth.signInWithEmailAndPassword(email, pwd);
       } catch (e) {
-        inErr.textContent = e.message;
+        inMsg.textContent = e.message;
+        clearPasswords();
       }
     });
 
-    /* ===== Forgot password ===== */
+    /* ===== Reset password ===== */
     forgotPwd.addEventListener('click', async (e) => {
       e.preventDefault();
       const email = toLower(inEmail.value);
-      if (!email) { alert('Enter your email in the box above, then click this.'); return; }
+      if (!email) { alert('Enter your email above first.'); return; }
       try {
         await auth.sendPasswordResetEmail(email);
         alert('Password reset email sent to ' + email);
-      } catch (e) {
-        alert('Error: ' + e.message);
-      }
+      } catch (e) { alert('Error: ' + e.message); }
     });
 
     /* ===== Auth state & post-login ===== */
     auth.onAuthStateChanged(async (user) => {
       if (user) {
         const emailLower = toLower(user.email);
-        // Re-check allowlist at login too (allowed must be true)
         if (!(await isAllowedEmail(emailLower))) {
           alert('This email is not authorised for the directory.');
-          await auth.signOut();
-          return;
+          await auth.signOut(); return;
         }
-
         if (!localStorage.getItem(sessKey)) localStorage.setItem(sessKey, String(now()));
         setInterval(() => {
           const start = parseInt(localStorage.getItem(sessKey) || '0', 10);
@@ -237,15 +252,20 @@
         authCard.classList.add('hide');
         appSection.classList.remove('hide');
         userBox.classList.remove('hide');
+        clearPasswords();
         loadContacts();
       } else {
         authCard.classList.remove('hide');
         appSection.classList.add('hide');
         userBox.classList.add('hide');
+        clearPasswords();
       }
     });
 
-    logoutBtn.addEventListener('click', () => auth.signOut());
+    logoutBtn.addEventListener('click', () => {
+      auth.signOut();
+      clearPasswords();
+    });
 
     /* ===== Load contacts.csv (cache-busting) ===== */
     function loadContacts() {
@@ -296,10 +316,14 @@
               { title: 'Contact' },
               { title: 'WhatsApp' }
             ],
-            paging: false,    // show all rows
+            paging: false,
             searching: true,
             ordering: true,
-            responsive: true
+            responsive: true,
+            language: {
+              search: 'Universal Search:',
+              searchPlaceholder: 'Search name, MBBS batch, designation, place of work, phone…'
+            }
           });
         },
         error: function(err) {
